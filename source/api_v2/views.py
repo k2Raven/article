@@ -1,8 +1,8 @@
-import json
-
 from django.contrib.auth import get_user_model
-from django.http import JsonResponse, HttpResponseNotAllowed, HttpResponse, HttpResponseBadRequest
-from django.views import View
+from django.http import HttpResponseNotAllowed, HttpResponse
+from rest_framework.generics import get_object_or_404
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from api_v2.serializers import ArticleSerializer
 from webapp.models import Article
@@ -17,18 +17,24 @@ def get_token_view(request, *args, **kwargs):
     return HttpResponseNotAllowed('Only GET request are allowed')
 
 
-class ArticleView(View):
+class ArticleView(APIView):
     def get(self, request, *args, **kwargs):
         articles = Article.objects.all()
         serializer = ArticleSerializer(articles, many=True)
-        return JsonResponse(serializer.data, safe=False)
+        return Response(serializer.data)
 
     def post(self, request, *args, **kwargs):
-        body = json.loads(request.body)
-        serializer = ArticleSerializer(data=body)
+        serializer = ArticleSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = get_user_model().objects.last()
+        article = serializer.save(author=user)
+        return Response({"id": article.id}, status=201)
+
+    def put(self, request, pk, *args, **kwargs):
+        article = get_object_or_404(Article, pk=pk)
+        serializer = ArticleSerializer(data=request.data, instance=article)
         if serializer.is_valid():
-            user = get_user_model().objects.last()
-            article = serializer.save(author=user)
-            return JsonResponse({"id": article.id}, status=201)
+            article = serializer.save()
+            return Response(serializer.data, status=200)
         else:
-            return JsonResponse({"errors": serializer.errors}, status=400)
+            return Response({"errors": serializer.errors}, status=400)
