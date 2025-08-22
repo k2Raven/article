@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.http import HttpResponseNotAllowed, HttpResponse
+from rest_framework import status
 from rest_framework.generics import get_object_or_404
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -28,13 +29,13 @@ class ArticleView(APIView):
         serializer.is_valid(raise_exception=True)
         user = get_user_model().objects.last()
         article = serializer.save(author=user)
-        return Response({"id": article.id}, status=201)
+        return Response({"id": article.id}, status=status.HTTP_201_CREATED)
 
     def put(self, request, pk, *args, **kwargs):
         article = get_object_or_404(Article, pk=pk)
         serializer = ArticleSerializer(data=request.data, instance=article)
         if serializer.is_valid():
             article = serializer.save()
-            return Response(serializer.data, status=200)
+            return Response(serializer.data)
         else:
-            return Response({"errors": serializer.errors}, status=400)
+            return Response({"errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
