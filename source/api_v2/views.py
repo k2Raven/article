@@ -1,10 +1,10 @@
 import json
-from datetime import datetime
-from decimal import Decimal
-from json import JSONDecodeError
 
+from django.contrib.auth import get_user_model
 from django.http import JsonResponse, HttpResponseNotAllowed, HttpResponse, HttpResponseBadRequest
+from django.views import View
 
+from api_v2.serializers import ArticleSerializer
 from webapp.models import Article
 
 from django.views.decorators.csrf import ensure_csrf_cookie
@@ -17,29 +17,18 @@ def get_token_view(request, *args, **kwargs):
     return HttpResponseNotAllowed('Only GET request are allowed')
 
 
-
-def articles(request):
-    if request.method == 'GET':
+class ArticleView(View):
+    def get(self, request, *args, **kwargs):
         articles = Article.objects.all()
+        serializer = ArticleSerializer(articles, many=True)
+        return JsonResponse(serializer.data, safe=False)
 
-        response_articles = []
-
-        for article in articles:
-            response_articles.append({
-                "title": article.title,
-                "content": article.content,
-                "author": article.author.username,
-            })
-
-        return JsonResponse(response_articles, safe=False)
-    elif request.method == 'POST':
-        try:
-            print(request.user)
-            body = json.loads(request.body)
-            article = Article.objects.create(**body, author=request.user)
+    def post(self, request, *args, **kwargs):
+        body = json.loads(request.body)
+        serializer = ArticleSerializer(data=body)
+        if serializer.is_valid():
+            user = get_user_model().objects.last()
+            article = serializer.save(author=user)
             return JsonResponse({"id": article.id}, status=201)
-        except JSONDecodeError as e:
-            return HttpResponseBadRequest()
-    else:
-        return HttpResponseNotAllowed(['GET', 'POST'])
-
+        else:
+            return JsonResponse({"errors": serializer.errors}, status=400)
