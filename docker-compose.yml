@@ -1,15 +1,24 @@
 services:
-  nginx1:
+  db:
+    image: postgres:17
+    volumes:
+      - .volumes/db_data:/var/lib/postgresql/data
+    env_file:
+      - ./source/.env
+    ports:
+        - "5432:5432"
+    restart: always
+  web:
     build:
       context: .
-      dockerfile: source/Dockerfile
+      dockerfile: ./source/Dockerfile
+    env_file:
+      - ./source/.env
     ports:
-      - "8080:80"
-    container_name: nginx1
-  nginx2:
-    image: "nginx:alpine"
-    ports:
-      - "8081:80"
-    container_name: nginx2
+      - "8080:8080"
+    restart: always
     volumes:
-      - ./source/index.html:/usr/share/nginx/html/index.html
+      - ./source:/app
+    depends_on:
+      - db
+    command: sh -c "python manage.py migrate --noinput && python manage.py runserver 0.0.0.0:8080"
